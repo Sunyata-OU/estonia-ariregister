@@ -1,0 +1,15 @@
+# Data files
+*.zip
+*.json
+*.csv
+extracted/
+
+# Python
+__pycache__/
+*.pyc
+.mypy_cache/
+
+# Editor/IDE
+.vscode/
+.idea/
+.claude/
