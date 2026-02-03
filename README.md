@@ -63,3 +63,9 @@ Expected input files:
 ## Requirements
 - Python 3.6+
 - No external dependencies (uses standard library `json`, `mmap`, `csv`, `zipfile`).
+
+## Disclaimer
+This project is for informational purposes only. The author takes no responsibility for how the data obtained through these tools is used, its accuracy, or any consequences resulting from its use. Users are responsible for complying with the terms of service of the Estonian Business Register and all applicable laws and regulations.
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
