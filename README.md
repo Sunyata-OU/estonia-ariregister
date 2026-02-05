@@ -96,3 +96,17 @@ The tool creates a `chunks/` directory:
 
 ## License
 MIT
+
+## Disclaimer
+
+**IMPORTANT: READ CAREFULLY.**
+
+This software is provided "as is" and "with all faults," without any warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement.
+
+1.  **Compliance with RIK Terms:** By using this tool, you agree to comply with the [Terms of Use of the Estonian Business Registry (RIK) Open Data](https://ariregister.rik.ee/eng/open_data). You are solely responsible for ensuring that your use of the data (including automated downloading and parsing) adheres to their policies and rate limits.
+2.  **No Liability:** In no event shall the authors, contributors, or copyright holders be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the software or the use or other dealings in the software.
+3.  **Data Accuracy:** This tool retrieves and parses public data from the Estonian Business Registry (RIK). The authors make no guarantees regarding the accuracy, completeness, or timeliness of the data provided by the registry or the parsing logic within this tool.
+4.  **Use at Your Own Risk:** Users are solely responsible for any decisions made or actions taken based on the information provided by this tool. This software is not intended for use in high-stakes environments, legal compliance verification, or financial due diligence without independent verification.
+5.  **No Official Affiliation:** This project is an independent tool and is not affiliated with, endorsed by, or sponsored by the Centre of Registers and Information Systems (RIK) or any Estonian government entity.
+
+By using this software, you acknowledge that you have read this disclaimer, agree to its terms, and accept full responsibility for your use of the retrieved data.
