@@ -145,10 +145,14 @@ def main():
                     if field not in ('ariregistri_kood', 'nimi'):
                         merged_data[reg_code][field] = value
             else:
-                # For other files, add nested data under the appropriate key
-                for field, value in item.items():
-                    if field not in ('ariregistri_kood', 'nimi'):
-                        merged_data[reg_code][field] = value
+                # For other files, collect records into an array under the key
+                nested_record = {
+                    field: value for field, value in item.items()
+                    if field not in ('ariregistri_kood', 'nimi')
+                }
+                if key_prefix not in merged_data[reg_code]:
+                    merged_data[reg_code][key_prefix] = []
+                merged_data[reg_code][key_prefix].append(nested_record)
 
     # Step 3: Convert to list and save
     print("\nStep 3: Saving merged data...")
