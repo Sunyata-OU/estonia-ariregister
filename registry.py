@@ -24,6 +24,8 @@ from datetime import datetime
 import logging
 from abc import ABC, abstractmethod
 
+from difflib import get_close_matches
+
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -184,6 +186,85 @@ VALUE_TRANSLATIONS = {
     "Osaühingut võib kõikide tehingute tegemisel esindada iga juhatuse liige.": "The private limited company may be represented by any member of the management board in all transactions.",
 }
 
+# ============================================================
+# Industry Mapping (English names -> EMTAK prefixes)
+# ============================================================
+
+INDUSTRY_MAP = {
+    # IT & Technology
+    "software": ["62"], "it": ["62"], "tech": ["62"], "programming": ["6201"],
+    "consulting": ["6202", "7022"], "it consulting": ["6202"], "data processing": ["6311"],
+    "hosting": ["6311"], "web": ["6312"], "telecom": ["61"], "telecommunications": ["61"],
+    # Manufacturing
+    "manufacturing": ["10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33"],
+    "food manufacturing": ["10"], "beverages": ["11"], "textiles": ["13"], "clothing": ["14"],
+    "wood": ["16"], "paper": ["17"], "printing": ["18"], "chemicals": ["20"],
+    "pharmaceuticals": ["21"], "plastics": ["22"], "metals": ["24", "25"], "electronics": ["26"],
+    "machinery": ["28"], "automotive": ["29"], "furniture": ["31"],
+    # Construction
+    "construction": ["41", "42", "43"], "building": ["41"], "civil engineering": ["42"],
+    "renovation": ["43"], "plumbing": ["4322"], "electrical": ["4321"],
+    # Trade & Retail
+    "retail": ["47"], "wholesale": ["46"], "trade": ["45", "46", "47"],
+    "e-commerce": ["4791"], "car sales": ["45"], "grocery": ["4711"],
+    # Food & Hospitality
+    "restaurant": ["56"], "restaurants": ["56"], "food": ["56"], "catering": ["5621"],
+    "hotel": ["55"], "hotels": ["55"], "accommodation": ["55"], "hospitality": ["55", "56"],
+    "bar": ["5630"], "cafe": ["5610"],
+    # Transport & Logistics
+    "transport": ["49", "50", "51", "52"], "logistics": ["52"], "warehousing": ["5210"],
+    "trucking": ["4941"], "freight": ["4941"], "taxi": ["4932"], "courier": ["5320"],
+    "shipping": ["50"], "aviation": ["51"],
+    # Real Estate
+    "real estate": ["68"], "property": ["68"], "rental": ["6820"],
+    # Finance & Insurance
+    "finance": ["64", "65", "66"], "banking": ["6419"], "insurance": ["65"],
+    "investment": ["6430"], "fintech": ["6419", "6499"],
+    # Professional Services
+    "legal": ["6910"], "law": ["6910"], "accounting": ["6920"], "audit": ["6920"],
+    "management consulting": ["7022"], "architecture": ["7111"], "engineering": ["7112"],
+    "design": ["7410"], "advertising": ["7311"], "marketing": ["7311", "7312"],
+    "research": ["72"], "translation": ["7430"],
+    # Healthcare
+    "healthcare": ["86"], "medical": ["86"], "dental": ["8623"], "pharmacy": ["4773"],
+    "veterinary": ["75"],
+    # Education
+    "education": ["85"], "training": ["8559"], "school": ["8520"],
+    # Agriculture
+    "agriculture": ["01"], "farming": ["01"], "forestry": ["02"], "fishing": ["03"],
+    # Energy & Mining
+    "energy": ["35"], "electricity": ["3511"], "mining": ["05", "06", "07", "08", "09"],
+    "oil": ["06"], "gas": ["0620"],
+    # Media & Entertainment
+    "media": ["58", "59", "60"], "publishing": ["58"], "film": ["59"], "tv": ["60"],
+    "gaming": ["5821"], "music": ["5920"],
+    # Other Services
+    "cleaning": ["8121", "8122"], "security": ["80"], "staffing": ["78"],
+    "recruitment": ["7810"], "beauty": ["9602"], "hairdressing": ["9602"],
+    "fitness": ["9311", "9313"], "sports": ["93"],
+    "waste": ["38"], "recycling": ["3831", "3832"],
+    "ngo": ["9412", "9499"], "nonprofit": ["9412", "9499"],
+}
+
+def resolve_industry(name):
+    """Resolve an industry name or EMTAK code to a list of EMTAK prefixes."""
+    if not name:
+        return None
+    name = name.strip()
+    # If it looks like an EMTAK code already, return it directly
+    if name.isdigit():
+        return [name]
+    key = name.lower()
+    if key in INDUSTRY_MAP:
+        return INDUSTRY_MAP[key]
+    # Try close matches
+    matches = get_close_matches(key, INDUSTRY_MAP.keys(), n=3, cutoff=0.6)
+    if matches:
+        console.print(f"[warning]Unknown industry '{name}'. Did you mean: {', '.join(matches)}?[/warning]")
+        return None
+    console.print(f"[warning]Unknown industry '{name}'. Use --list-industries to see available options.[/warning]")
+    return None
+
 UI_LABELS = {
     "et": {
         "dossier": "Toimik", "core": "Põhiandmed", "enrichment": "PDF-i lisandmed", "general": "Üldatribuudid",
@@ -198,6 +279,8 @@ UI_LABELS = {
         "employees": "Töötajad", "activity": "Tegevusala", "main": "Põhitegevus", "date": "Kuupäev", "entry_type": "Kande liik",
         "entry_num": "Nr", "portal_link": "Link registrisse", "privacy_note": "* Eraisikute isikukoodid on avaandmetes peidetud (hash). PDF-i rikastamine unmaskib need.",
         "results_found": "Leitud tulemusi", "no_results": "Tulemusi ei leitud.",
+        "analysis_title": "Analüüs", "rank": "Nr", "group": "Grupp", "count": "Arv", "pct": "Osakaal",
+        "analysis_by": {"county": "maakond", "status": "staatus", "legal-form": "õiguslik vorm", "emtak": "EMTAK kood", "year": "asutamisaasta"},
     },
     "en": {
         "dossier": "Dossier", "core": "Core Identity", "enrichment": "Live PDF Enrichment", "general": "General Attributes",
@@ -212,6 +295,8 @@ UI_LABELS = {
         "employees": "Employees", "activity": "Activity", "main": "Main", "date": "Date", "entry_type": "Entry Type",
         "entry_num": "Number", "portal_link": "Portal Link", "privacy_note": "* Personal ID codes for individuals are hashed in open data. PDF enrichment unmasks them.",
         "results_found": "Found results", "no_results": "No results found.",
+        "analysis_title": "Analysis", "rank": "Rank", "group": "Group", "count": "Count", "pct": "Share",
+        "analysis_by": {"county": "County", "status": "Status", "legal-form": "Legal Form", "emtak": "EMTAK Code", "year": "Founding Year"},
     }
 }
 
@@ -257,7 +342,8 @@ class RegistryBackend(ABC):
 class SQLiteBackend(RegistryBackend):
     def __init__(self, db_path: Path):
         self.db_path = db_path
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.conn = sqlite3.connect(db_path, check_same_thread=False, timeout=30)
+        self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.row_factory = sqlite3.Row
         self._create_tables()
 
@@ -271,13 +357,41 @@ class SQLiteBackend(RegistryBackend):
             """)
             self.conn.execute("CREATE TABLE IF NOT EXISTS sync_state (filename TEXT PRIMARY KEY, status TEXT)")
             self.conn.execute("CREATE INDEX IF NOT EXISTS idx_name ON companies(name)")
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_legal_form ON companies(legal_form)")
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON companies(status)")
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_founded_at ON companies(founded_at)")
+
+    @staticmethod
+    def _normalize_date(date_str):
+        if not date_str: return None
+        parts = date_str.strip().split('.')
+        if len(parts) == 3 and len(parts[2]) == 4:
+            return f"{parts[2]}-{parts[1]}-{parts[0]}"
+        return date_str
+
+    @staticmethod
+    def _extract_county(item):
+        ehak = item.get('asukoha_ehak_tekstina', '') or ''
+        parts = [p.strip() for p in ehak.split(',')]
+        for p in reversed(parts):
+            if 'maakond' in p: return p
+        return parts[-1] if parts and parts[-1] else None
+
+    @staticmethod
+    def _extract_city(item):
+        ehak = item.get('asukoha_ehak_tekstina', '') or ''
+        parts = [p.strip() for p in ehak.split(',')]
+        for p in parts:
+            if 'linn' in p or 'vald' in p: return p
+        return parts[1] if len(parts) > 1 else (parts[0] if parts and parts[0] else None)
 
     def insert_batch_base(self, batch):
         with self.conn:
             self.conn.executemany(
                 "INSERT OR REPLACE INTO companies (code, name, status, maakond, linn, legal_form, founded_at, full_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                [(i.get('ariregistri_kood'), i.get('nimi'), i.get('staatus'), i.get('aadress_maakond'), 
-                  i.get('aadress_linn'), i.get('ettevotja_oiguslik_vorm'), i.get('esmakande_kuupaev'), json.dumps(i)) for i in batch]
+                [(i.get('ariregistri_kood'), i.get('nimi'), i.get('ettevotja_staatus_tekstina'),
+                  self._extract_county(i), self._extract_city(i),
+                  i.get('ettevotja_oiguslik_vorm'), self._normalize_date(i.get('ettevotja_esmakande_kpv')), json.dumps(i)) for i in batch]
             )
 
     def update_batch_json(self, key, data_map):
@@ -291,12 +405,22 @@ class SQLiteBackend(RegistryBackend):
         with self.conn:
             for item in batch:
                 code = item.get('ariregistri_kood')
-                if code: self.conn.execute("UPDATE companies SET full_data = json_patch(full_data, ?) WHERE code = ?", (json.dumps(item), code))
+                if not code: continue
+                self.conn.execute("UPDATE companies SET full_data = json_patch(full_data, ?) WHERE code = ?", (json.dumps(item), code))
+                updates = []; params = []
+                status = item.get('staatus_tekstina')
+                if status: updates.append("status = COALESCE(?, status)"); params.append(status)
+                founded = self._normalize_date(item.get('esmaregistreerimise_kpv'))
+                if founded: updates.append("founded_at = COALESCE(?, founded_at)"); params.append(founded)
+                if updates:
+                    params.append(code)
+                    self.conn.execute(f"UPDATE companies SET {', '.join(updates)} WHERE code = ?", params)
 
     def update_enrichment(self, code: int, enrichment: dict):
         with self.conn: self.conn.execute("UPDATE companies SET enrichment = ? WHERE code = ?", (json.dumps(enrichment), code))
 
-    def search(self, term=None, person=None, location=None, status=None, limit=None):
+    def search(self, term=None, person=None, location=None, status=None, limit=None,
+               emtak=None, founded_after=None, founded_before=None, legal_form=None):
         query = "SELECT * FROM companies WHERE 1=1"; params = []
         if term:
             if term.isdigit(): query += " AND code = ?"; params.append(int(term))
@@ -304,11 +428,70 @@ class SQLiteBackend(RegistryBackend):
         if location: query += " AND (maakond LIKE ? OR linn LIKE ?)"; params.extend([f"%{location}%", f"%{location}%"])
         if status: query += " AND (status LIKE ? OR full_data LIKE ?)"; params.extend([f"%{status}%", f"%{status}%"])
         if person: query += " AND (full_data LIKE ? OR enrichment LIKE ?)"; params.extend([f"%{person}%", f"%{person}%"])
+        if emtak:
+            if isinstance(emtak, list):
+                placeholders = " OR ".join(["json_extract(e.value, '$.emtak_kood') LIKE ?"] * len(emtak))
+                query += f""" AND EXISTS (SELECT 1 FROM json_each(companies.full_data, '$.yldandmed.teatatud_tegevusalad') AS e
+                             WHERE {placeholders})"""
+                params.extend([f"{e}%" for e in emtak])
+            else:
+                query += """ AND EXISTS (SELECT 1 FROM json_each(companies.full_data, '$.yldandmed.teatatud_tegevusalad') AS e
+                             WHERE json_extract(e.value, '$.emtak_kood') LIKE ?)"""
+                params.append(f"{emtak}%")
+        if founded_after: query += " AND founded_at >= ?"; params.append(founded_after)
+        if founded_before: query += " AND founded_at <= ?"; params.append(founded_before)
+        if legal_form: query += " AND legal_form LIKE ?"; params.append(f"%{legal_form}%")
         if limit: query += f" LIMIT {int(limit)}"
         for row in self.conn.execute(query, params):
             data = json.loads(row['full_data'])
             if row['enrichment']: data['enrichment'] = json.loads(row['enrichment'])
             yield data
+
+    def analyze(self, by, emtak=None, location=None, status=None, legal_form=None,
+                founded_after=None, founded_before=None, top=20):
+        where_clauses = []; params = []
+        if emtak:
+            if isinstance(emtak, list):
+                placeholders = " OR ".join(["json_extract(e.value, '$.emtak_kood') LIKE ?"] * len(emtak))
+                where_clauses.append(f"""EXISTS (SELECT 1 FROM json_each(c.full_data, '$.yldandmed.teatatud_tegevusalad') AS e
+                                    WHERE {placeholders})""")
+                params.extend([f"{e}%" for e in emtak])
+            else:
+                where_clauses.append("""EXISTS (SELECT 1 FROM json_each(c.full_data, '$.yldandmed.teatatud_tegevusalad') AS e
+                                    WHERE json_extract(e.value, '$.emtak_kood') LIKE ?)""")
+                params.append(f"{emtak}%")
+        if location: where_clauses.append("(c.maakond LIKE ? OR c.linn LIKE ?)"); params.extend([f"%{location}%", f"%{location}%"])
+        if status: where_clauses.append("c.status LIKE ?"); params.append(f"%{status}%")
+        if legal_form: where_clauses.append("c.legal_form LIKE ?"); params.append(f"%{legal_form}%")
+        if founded_after: where_clauses.append("c.founded_at >= ?"); params.append(founded_after)
+        if founded_before: where_clauses.append("c.founded_at <= ?"); params.append(founded_before)
+        where_sql = (" AND " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        if by == "county":
+            query = f"SELECT COALESCE(c.maakond, 'Unknown') AS grp, COUNT(*) AS cnt FROM companies c WHERE 1=1{where_sql} GROUP BY grp ORDER BY cnt DESC LIMIT ?"
+        elif by == "status":
+            query = f"SELECT COALESCE(c.status, 'Unknown') AS grp, COUNT(*) AS cnt FROM companies c WHERE 1=1{where_sql} GROUP BY grp ORDER BY cnt DESC LIMIT ?"
+        elif by == "legal-form":
+            query = f"SELECT COALESCE(c.legal_form, 'Unknown') AS grp, COUNT(*) AS cnt FROM companies c WHERE 1=1{where_sql} GROUP BY grp ORDER BY cnt DESC LIMIT ?"
+        elif by == "year":
+            query = f"SELECT COALESCE(SUBSTR(c.founded_at, 1, 4), 'Unknown') AS grp, COUNT(*) AS cnt FROM companies c WHERE 1=1{where_sql} GROUP BY grp ORDER BY grp ASC LIMIT ?"
+        elif by == "emtak":
+            emtak_filter = ""
+            if emtak:
+                if isinstance(emtak, list):
+                    emtak_filter = " AND (" + " OR ".join(["json_extract(items.value, '$.emtak_kood') LIKE ?"] * len(emtak)) + ")"
+                    params.extend([f"{e}%" for e in emtak])
+                else:
+                    emtak_filter = " AND json_extract(items.value, '$.emtak_kood') LIKE ?"
+                    params.append(f"{emtak}%")
+            query = f"""SELECT json_extract(items.value, '$.emtak_kood') || ' - ' || COALESCE(json_extract(items.value, '$.emtak_tekstina'), '?') AS grp, COUNT(*) AS cnt
+                FROM companies c, json_each(c.full_data, '$.yldandmed.teatatud_tegevusalad') AS items
+                WHERE json_extract(items.value, '$.emtak_kood') IS NOT NULL{emtak_filter}{where_sql}
+                GROUP BY json_extract(items.value, '$.emtak_kood') ORDER BY cnt DESC LIMIT ?"""
+        else:
+            return []
+        params.append(top)
+        return [(row[0], row[1]) for row in self.conn.execute(query, params)]
 
     def is_file_processed(self, filename: str):
         return self.conn.execute("SELECT 1 FROM sync_state WHERE filename=? AND status='DONE'", (filename,)).fetchone() is not None
@@ -319,7 +502,18 @@ class SQLiteBackend(RegistryBackend):
     def get_stats(self):
         total = self.conn.execute("SELECT COUNT(*) FROM companies").fetchone()[0]
         enriched = self.conn.execute("SELECT COUNT(*) FROM companies WHERE enrichment IS NOT NULL").fetchone()[0]
-        return {"total": total, "enriched": enriched}
+        has_status = self.conn.execute("SELECT COUNT(*) FROM companies WHERE status IS NOT NULL").fetchone()[0]
+        has_county = self.conn.execute("SELECT COUNT(*) FROM companies WHERE maakond IS NOT NULL").fetchone()[0]
+        has_founded = self.conn.execute("SELECT COUNT(*) FROM companies WHERE founded_at IS NOT NULL").fetchone()[0]
+        has_emtak = self.conn.execute("SELECT COUNT(*) FROM companies WHERE full_data LIKE '%emtak_kood%'").fetchone()[0]
+        top_counties = self.conn.execute("SELECT maakond, COUNT(*) AS cnt FROM companies WHERE maakond IS NOT NULL GROUP BY maakond ORDER BY cnt DESC LIMIT 5").fetchall()
+        top_legal = self.conn.execute("SELECT legal_form, COUNT(*) AS cnt FROM companies WHERE legal_form IS NOT NULL GROUP BY legal_form ORDER BY cnt DESC LIMIT 5").fetchall()
+        return {
+            "total": total, "enriched": enriched,
+            "has_status": has_status, "has_county": has_county, "has_founded": has_founded, "has_emtak": has_emtak,
+            "top_counties": [(r[0], r[1]) for r in top_counties],
+            "top_legal": [(r[0], r[1]) for r in top_legal],
+        }
 
     def commit(self): self.conn.commit()
 
@@ -440,12 +634,22 @@ def parse_pdf_content(pdf_bytes: bytes):
         return info
     except Exception as e: logger.error(f"Error parsing PDF: {e}"); return {}
 
+def _convert_decimals(obj):
+    from decimal import Decimal
+    if isinstance(obj, Decimal): return float(obj) if obj % 1 else int(obj)
+    if isinstance(obj, dict): return {k: _convert_decimals(v) for k, v in obj.items()}
+    if isinstance(obj, list): return [_convert_decimals(v) for v in obj]
+    return obj
+
 def iter_json_array(path):
     if shutil.which("jq"):
         proc = subprocess.Popen(["jq", "-c", ".[]", str(path)], stdout=subprocess.PIPE)
         for line in proc.stdout: yield json.loads(line)
     else:
-        with open(path, 'r', encoding='utf-8') as f: yield from json.load(f)
+        import ijson
+        with open(path, 'rb') as f:
+            for item in ijson.items(f, 'item'):
+                yield _convert_decimals(item)
 
 class Downloader:
     def __init__(self, ddir, files):
@@ -502,7 +706,7 @@ def display_company(item, sections=None, lang="et"):
         h = p.get('isikukood_hash'); return f"[dim]Hash: {h[:8]}...[/dim]" if h else "[dim]N/A[/dim]"
 
     n, c = item.get('nimi', 'N/A'), item.get('ariregistri_kood', 'N/A')
-    console.print(f"\n[bold blue]█ {lbl['dossier']}: {n} ({c})[/bold blue]", style="header"); console.print("=" * console.width)
+    console.print(f"\n[bold blue]== {lbl['dossier']}: {n} ({c}) ==[/bold blue]", style="header"); console.print("=" * console.width)
     if "core" in sections:
         t = Table(title=lbl["core"], box=box.ROUNDED, header_style="bold yellow", expand=True)
         t.add_column(lbl["attr"], style="cyan"); t.add_column(lbl["val"])
@@ -573,36 +777,427 @@ def display_company(item, sections=None, lang="et"):
         console.print(t)
     console.print(f"\n[dim]{lbl['privacy_note']}[/dim]")
 
+def display_stats(stats, lang="et"):
+    lbl = UI_LABELS[lang]; to_en = (lang == "en")
+    title = lbl.get("stats_title", "Database Statistics" if to_en else "Andmebaasi statistika")
+    t = Table(title=title, box=box.ROUNDED, header_style="bold yellow", expand=True)
+    t.add_column(lbl["attr"], style="cyan"); t.add_column(lbl["val"], justify="right")
+    total = stats["total"]
+    def pct(n): return f"{n:,} ({n/total*100:.1f}%)" if total else "0"
+    t.add_row("Total companies" if to_en else "Ettevotteid kokku", f"{total:,}")
+    t.add_row("With status" if to_en else "Staatusega", pct(stats["has_status"]))
+    t.add_row("With county" if to_en else "Maakonnaga", pct(stats["has_county"]))
+    t.add_row("With founding date" if to_en else "Asutamiskuupaevaga", pct(stats["has_founded"]))
+    t.add_row("With EMTAK codes" if to_en else "EMTAK koodidega", pct(stats["has_emtak"]))
+    t.add_row("PDF enriched" if to_en else "PDF-iga rikastatud", pct(stats["enriched"]))
+    console.print(t)
+    if stats["top_counties"]:
+        t2 = Table(title="Top counties" if to_en else "Suurimad maakonnad", box=box.SIMPLE)
+        t2.add_column(lbl.get("group", "Group"), style="cyan"); t2.add_column(lbl["count"], justify="right")
+        for name, cnt in stats["top_counties"]:
+            t2.add_row(translate_value(name, to_en) if name else "N/A", f"{cnt:,}")
+        console.print(t2)
+    if stats["top_legal"]:
+        t3 = Table(title="Top legal forms" if to_en else "Levinumad oiguslikud vormid", box=box.SIMPLE)
+        t3.add_column(lbl.get("group", "Group"), style="cyan"); t3.add_column(lbl["count"], justify="right")
+        for name, cnt in stats["top_legal"]:
+            t3.add_row(translate_value(name, to_en) if name else "N/A", f"{cnt:,}")
+        console.print(t3)
+
+def get_latest_employees(item):
+    """Extract latest employee count from annual reports."""
+    reports = item.get('yldandmed', {}).get('info_majandusaasta_aruannetest', [])
+    if not reports:
+        return None
+    # Sort by period end date descending, take latest
+    sorted_reports = sorted(reports, key=lambda r: r.get('majandusaasta_perioodi_lopp_kpv', ''), reverse=True)
+    for r in sorted_reports:
+        emp = r.get('tootajate_arv')
+        if emp is not None:
+            try:
+                return int(emp)
+            except (ValueError, TypeError):
+                pass
+    return None
+
+def get_main_activity(item):
+    """Extract main activity description from EMTAK data."""
+    activities = item.get('yldandmed', {}).get('teatatud_tegevusalad', [])
+    if not activities:
+        return ""
+    for a in activities:
+        if a.get('on_pohitegevusala'):
+            code = a.get('emtak_kood', '')
+            desc = a.get('emtak_tekstina', '')
+            return f"{code} {desc}".strip()
+    # fallback: first activity
+    a = activities[0]
+    return f"{a.get('emtak_kood', '')} {a.get('emtak_tekstina', '')}".strip()
+
+def filter_by_employees(results, min_employees=None, max_employees=None):
+    """Post-filter search results by employee count."""
+    for item in results:
+        emp = get_latest_employees(item)
+        if min_employees is not None and (emp is None or emp < min_employees):
+            continue
+        if max_employees is not None and (emp is not None and emp > max_employees):
+            continue
+        yield item
+
+def shorten_status(status, to_en=False):
+    """Shorten status labels for compact display."""
+    status_map = {
+        "Registrisse kantud": "Active", "Entered into register": "Active",
+        "Kustutatud": "Deleted", "Deleted": "Deleted",
+        "Likvideerimisel": "Liquidating", "In liquidation": "Liquidating",
+        "Pankrotis": "Bankrupt", "Bankrupt": "Bankrupt",
+        "Registrist kustutatud": "Deleted", "Deleted from register": "Deleted",
+    }
+    if not status:
+        return "Unknown"
+    for key, short in status_map.items():
+        if key in status:
+            return short
+    return status[:20]
+
+def display_company_summary(items, lang="et"):
+    """Display companies as a compact summary table (one row per company)."""
+    lbl = UI_LABELS[lang]; to_en = (lang == "en")
+    t = Table(title="Companies" if to_en else "Ettevotted", box=box.ROUNDED, header_style="bold yellow", expand=True)
+    t.add_column("Name" if to_en else "Nimi", style="bold white", max_width=35)
+    t.add_column("Code" if to_en else "Kood", style="cyan", justify="right")
+    t.add_column("County" if to_en else "Maakond", style="dim")
+    t.add_column("Industry" if to_en else "Tegevusala", max_width=30)
+    t.add_column("Emp" if to_en else "Toot", justify="right", style="green")
+    t.add_column("Founded" if to_en else "Asutatud", style="dim")
+    t.add_column("Status" if to_en else "Staatus")
+    count = 0
+    for item in items:
+        count += 1
+        name = item.get('nimi', 'N/A')
+        code = str(item.get('ariregistri_kood', ''))
+        county = item.get('asukoha_ehak_tekstina', '')
+        if county:
+            parts = [p.strip() for p in county.split(',')]
+            county = next((p for p in reversed(parts) if 'maakond' in p), parts[-1] if parts else '')
+        activity = get_main_activity(item)
+        if len(activity) > 30:
+            activity = activity[:27] + "..."
+        emp = get_latest_employees(item)
+        emp_str = str(emp) if emp is not None else "-"
+        founded = item.get('yldandmed', {}).get('esmaregistreerimise_kpv', '') or ''
+        if founded and len(founded) >= 10:
+            founded = founded[:10]  # Just the date part
+        status = item.get('yldandmed', {}).get('staatus_tekstina', '') or item.get('ettevotja_staatus_tekstina', '') or ''
+        status = shorten_status(status, to_en)
+        t.add_row(name, code, county, activity, emp_str, founded, status)
+    console.print(t)
+    console.print(f"\n[success]{'Found' if to_en else 'Leitud'}: {count} {'companies' if to_en else 'ettevottet'}[/success]")
+    return count
+
+def display_industry_list(lang="et"):
+    """Display all available industry names grouped by category."""
+    to_en = (lang == "en")
+    categories = {
+        "IT & Technology": ["software", "it", "tech", "programming", "consulting", "it consulting", "data processing", "hosting", "web", "telecom"],
+        "Manufacturing": ["manufacturing", "food manufacturing", "beverages", "textiles", "clothing", "wood", "paper", "printing", "chemicals", "pharmaceuticals", "plastics", "metals", "electronics", "machinery", "automotive", "furniture"],
+        "Construction": ["construction", "building", "civil engineering", "renovation", "plumbing", "electrical"],
+        "Trade & Retail": ["retail", "wholesale", "trade", "e-commerce", "car sales", "grocery"],
+        "Food & Hospitality": ["restaurant", "food", "catering", "hotel", "accommodation", "hospitality", "bar", "cafe"],
+        "Transport & Logistics": ["transport", "logistics", "warehousing", "trucking", "freight", "taxi", "courier", "shipping", "aviation"],
+        "Real Estate": ["real estate", "property", "rental"],
+        "Finance & Insurance": ["finance", "banking", "insurance", "investment", "fintech"],
+        "Professional Services": ["legal", "law", "accounting", "audit", "management consulting", "architecture", "engineering", "design", "advertising", "marketing", "research", "translation"],
+        "Healthcare": ["healthcare", "medical", "dental", "pharmacy", "veterinary"],
+        "Education": ["education", "training", "school"],
+        "Agriculture": ["agriculture", "farming", "forestry", "fishing"],
+        "Energy & Mining": ["energy", "electricity", "mining", "oil", "gas"],
+        "Media & Entertainment": ["media", "publishing", "film", "tv", "gaming", "music"],
+        "Other Services": ["cleaning", "security", "staffing", "recruitment", "beauty", "hairdressing", "fitness", "sports", "waste", "recycling", "ngo", "nonprofit"],
+    }
+    title = "Available Industries" if to_en else "Saadaolevad tegevusalad"
+    tree = Tree(f"[bold blue]{title}[/bold blue]")
+    for cat, names in categories.items():
+        node = tree.add(f"[bold yellow]{cat}[/bold yellow]")
+        for name in names:
+            codes = INDUSTRY_MAP.get(name, [])
+            node.add(f"[cyan]{name}[/cyan] -> EMTAK {', '.join(codes)}")
+    console.print(tree)
+
+def export_csv(db, output_path, lang="et", emtak=None, location=None, status=None,
+               legal_form=None, founded_after=None, founded_before=None,
+               min_employees=None, max_employees=None, limit=None):
+    """Export filtered companies to CSV with flattened columns."""
+    to_en = (lang == "en")
+    results = db.search(emtak=emtak, location=location, status=status,
+                        legal_form=legal_form, founded_after=founded_after,
+                        founded_before=founded_before, limit=limit)
+    if min_employees or max_employees:
+        results = filter_by_employees(results, min_employees, max_employees)
+
+    headers = ["code", "name", "status", "county", "city", "legal_form", "founded",
+               "main_industry_code", "main_industry_name", "employees", "email", "phone", "website"]
+
+    count = 0
+    with open(output_path, 'w', encoding='utf-8-sig', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        for item in results:
+            count += 1
+            yld = item.get('yldandmed', {})
+            # Extract contacts
+            contacts = yld.get('sidevahendid', [])
+            email = phone = website = ""
+            for c in contacts:
+                ctype = c.get('liik_tekstina', '')
+                val = c.get('sisu', '')
+                if 'mail' in ctype.lower() or 'post' in ctype.lower():
+                    email = email or val
+                elif 'telefon' in ctype.lower() or 'mobiil' in ctype.lower():
+                    phone = phone or val
+                elif 'www' in ctype.lower() or 'internet' in ctype.lower():
+                    website = website or val
+            # Extract main activity
+            activities = yld.get('teatatud_tegevusalad', [])
+            main_code = main_name = ""
+            for a in activities:
+                if a.get('on_pohitegevusala'):
+                    main_code = a.get('emtak_kood', '')
+                    main_name = a.get('emtak_tekstina', '')
+                    break
+            if not main_code and activities:
+                main_code = activities[0].get('emtak_kood', '')
+                main_name = activities[0].get('emtak_tekstina', '')
+            # County/city from ehak
+            ehak = item.get('asukoha_ehak_tekstina', '')
+            county = city = ""
+            if ehak:
+                parts = [p.strip() for p in ehak.split(',')]
+                county = next((p for p in reversed(parts) if 'maakond' in p), '')
+                city = next((p for p in parts if 'linn' in p or 'vald' in p), '')
+
+            emp = get_latest_employees(item)
+            status_val = yld.get('staatus_tekstina', '') or item.get('ettevotja_staatus_tekstina', '')
+            if to_en:
+                status_val = translate_value(status_val, True)
+                main_name = translate_value(main_name, True)
+
+            writer.writerow([
+                item.get('ariregistri_kood', ''), item.get('nimi', ''), status_val,
+                county, city, item.get('ettevotja_oiguslik_vorm', ''),
+                yld.get('esmaregistreerimise_kpv', '') or item.get('ettevotja_esmakande_kpv', ''),
+                main_code, main_name, emp if emp is not None else '',
+                email, phone, website
+            ])
+    console.print(f"[success]Exported {count} companies to {output_path}[/success]")
+
+def cmd_report(db, report_type, lang="et", **kwargs):
+    """Execute a pre-built business report."""
+    to_en = (lang == "en")
+
+    if report_type == "market-overview":
+        console.print(f"\n[bold blue]{'Market Overview' if to_en else 'Turu ulevaade'}[/bold blue]\n")
+        display_stats(db.get_stats(), lang=lang)
+        console.print()
+        display_analysis(db.analyze(by="county", top=10), by="county", lang=lang)
+        console.print()
+        display_analysis(db.analyze(by="emtak", top=15), by="emtak", lang=lang)
+        console.print()
+        display_analysis(db.analyze(by="year", top=30), by="year", lang=lang)
+        console.print()
+        display_analysis(db.analyze(by="legal-form", top=10), by="legal-form", lang=lang)
+
+    elif report_type == "new-companies":
+        period = kwargs.get('period', '2024')
+        title = f"{'New Companies' if to_en else 'Uued ettevotted'} {period}"
+        console.print(f"\n[bold blue]{title}[/bold blue]\n")
+        fa = f"{period}-01-01"; fb = f"{period}-12-31"
+        total = db.analyze(by="status", founded_after=fa, founded_before=fb, top=100)
+        total_count = sum(c for _, c in total)
+        console.print(f"[success]{'Total new companies' if to_en else 'Uusi ettevotteid kokku'}: {total_count:,}[/success]\n")
+        display_analysis(db.analyze(by="emtak", founded_after=fa, founded_before=fb, top=15), by="emtak", lang=lang)
+        console.print()
+        display_analysis(db.analyze(by="county", founded_after=fa, founded_before=fb, top=10), by="county", lang=lang)
+        console.print()
+        display_analysis(db.analyze(by="legal-form", founded_after=fa, founded_before=fb, top=10), by="legal-form", lang=lang)
+
+    elif report_type == "top-industries":
+        location = kwargs.get('location')
+        title = f"{'Top Industries' if to_en else 'Suurimad tegevusalad'}"
+        if location:
+            title += f" - {location}"
+        console.print(f"\n[bold blue]{title}[/bold blue]\n")
+        display_analysis(db.analyze(by="emtak", location=location, top=20), by="emtak", lang=lang)
+
+    elif report_type == "industry-growth":
+        industry = kwargs.get('industry')
+        emtak = resolve_industry(industry) if industry else None
+        if industry and not emtak:
+            return
+        title = f"{'Industry Growth' if to_en else 'Tegevusala kasv'}: {industry or 'All'}"
+        console.print(f"\n[bold blue]{title}[/bold blue]\n")
+        display_analysis(db.analyze(by="year", emtak=emtak, top=50), by="year", lang=lang)
+        console.print()
+        display_analysis(db.analyze(by="county", emtak=emtak, top=10), by="county", lang=lang)
+
+    elif report_type == "regional":
+        county = kwargs.get('county')
+        if not county:
+            console.print("[warning]Please specify --county[/warning]"); return
+        title = f"{'Regional Report' if to_en else 'Piirkondlik aruanne'}: {county}"
+        console.print(f"\n[bold blue]{title}[/bold blue]\n")
+        display_analysis(db.analyze(by="status", location=county, top=10), by="status", lang=lang)
+        console.print()
+        display_analysis(db.analyze(by="emtak", location=county, top=15), by="emtak", lang=lang)
+        console.print()
+        display_analysis(db.analyze(by="year", location=county, top=30), by="year", lang=lang)
+        console.print()
+        display_analysis(db.analyze(by="legal-form", location=county, top=10), by="legal-form", lang=lang)
+
+    elif report_type == "bankruptcies":
+        period = kwargs.get('period')
+        title = f"{'Bankruptcies & Liquidations' if to_en else 'Pankrotid ja likvideerimised'}"
+        if period:
+            title += f" {period}"
+        console.print(f"\n[bold blue]{title}[/bold blue]\n")
+        fa = f"{period}-01-01" if period else None
+        fb = f"{period}-12-31" if period else None
+        for st in ["Likvideerimisel", "Pankrotis"]:
+            results = db.analyze(by="emtak", status=st, founded_after=fa, founded_before=fb, top=10)
+            if results:
+                st_label = translate_value(st, to_en)
+                console.print(f"\n[bold yellow]{st_label}[/bold yellow]")
+                display_analysis(results, by="emtak", lang=lang)
+        console.print()
+        for st in ["Likvideerimisel", "Pankrotis"]:
+            results = db.analyze(by="county", status=st, founded_after=fa, founded_before=fb, top=10)
+            if results:
+                st_label = translate_value(st, to_en)
+                console.print(f"\n[bold yellow]{st_label} - {'by county' if to_en else 'maakonniti'}[/bold yellow]")
+                display_analysis(results, by="county", lang=lang)
+    else:
+        console.print(f"[warning]Unknown report type: {report_type}[/warning]")
+        console.print("Available: market-overview, new-companies, top-industries, industry-growth, regional, bankruptcies")
+
+def display_analysis(results, by, lang="et"):
+    lbl = UI_LABELS[lang]; to_en = (lang == "en")
+    by_label = lbl["analysis_by"].get(by, by)
+    title = f"{lbl['analysis_title']}: {by_label}"
+    if not results:
+        console.print(f"[warning]{lbl['no_results']}[/warning]"); return
+    total = sum(cnt for _, cnt in results)
+    t = Table(title=title, box=box.ROUNDED, header_style="bold yellow", expand=True)
+    t.add_column(lbl["rank"], justify="right", style="dim", width=5)
+    t.add_column(lbl["group"], style="cyan")
+    t.add_column(lbl["count"], justify="right", style="bold white")
+    t.add_column(lbl["pct"], justify="left")
+    for i, (grp, cnt) in enumerate(results, 1):
+        pct = (cnt / total * 100) if total else 0
+        bar_len = int(pct / 2)
+        bar = f"{'#' * bar_len}{'.' * (50 - bar_len)} {pct:.1f}%"
+        display_grp = translate_value(grp, to_en) if grp else "N/A"
+        t.add_row(str(i), str(display_grp), f"{cnt:,}", bar)
+    console.print(t)
+    console.print(f"\n[success]Total: {total:,}[/success]")
+
 # ============================================================
 # Main
 # ============================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="Estonian Registry CLI")
-    parser.add_argument("--no-db", action="store_true"); parser.add_argument("--force", action="store_true")
+    parser = argparse.ArgumentParser(description="Estonian Registry CLI - Business Intelligence for Estonian Companies")
+    parser.add_argument("--no-db", action="store_true")
     parser.add_argument("--en", action="store_true"); parser.add_argument("--ee", action="store_true"); parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("--list-industries", action="store_true", help="Show all available industry names")
     sub = parser.add_subparsers(dest="cmd")
-    for n, al in {"sync": ["sünk"], "merge": ["ühenda"]}.items(): sub.add_parser(n, aliases=al)
+
+    # Core commands
+    for n, al in {"sync": ["sünk"], "merge": ["ühenda"]}.items():
+        sp = sub.add_parser(n, aliases=al); sp.add_argument("--force", action="store_true")
     sub.add_parser("enrich", aliases=["rikasta"]).add_argument("codes", nargs="+")
-    sub.add_parser("export", aliases=["ekspordi"]).add_argument("output")
+    sub.add_parser("stats", aliases=["statistika"])
+
+    # Search command (detailed dossier view)
     srch = sub.add_parser("search", aliases=["otsi"])
     srch.add_argument("term", nargs="?"); srch.add_argument("-l", "--location"); srch.add_argument("-s", "--status"); srch.add_argument("-p", "--person")
+    srch.add_argument("--emtak"); srch.add_argument("--industry"); srch.add_argument("--founded-after"); srch.add_argument("--founded-before"); srch.add_argument("--legal-form")
     srch.add_argument("--json", action="store_true"); srch.add_argument("-t", "--translate", action="store_true"); srch.add_argument("--limit", type=int, default=5)
     for s in ["core", "general", "history", "personnel", "ownership", "beneficiaries", "operations", "registry", "enrichment"]:
         srch.add_argument(f"--{s}", action="append_const", dest="sections", const=s)
-    args = parser.parse_args(); setup_logging(args.verbose); reg = EstonianRegistry(use_db=not args.no_db)
-    et_cmds = ["otsi", "rikasta", "ühenda", "sünk", "ekspordi", "otsi", "sünk", "ühenda", "rikasta", "ekspordi"]
-    en_cmds = ["search", "enrich", "merge", "sync", "export"]
+
+    # Find command (compact business-user search)
+    fnd = sub.add_parser("find", aliases=["leia"], help="Find companies with simple filters")
+    fnd.add_argument("query", nargs="?", help="Company name or code")
+    fnd.add_argument("--industry", help="Industry name (e.g., software, construction, restaurant)")
+    fnd.add_argument("-l", "--location", help="County or city name")
+    fnd.add_argument("-s", "--status", help="Company status filter")
+    fnd.add_argument("--min-employees", type=int, help="Minimum employee count")
+    fnd.add_argument("--max-employees", type=int, help="Maximum employee count")
+    fnd.add_argument("--founded-after", help="Founded after date (YYYY-MM-DD)")
+    fnd.add_argument("--founded-before", help="Founded before date (YYYY-MM-DD)")
+    fnd.add_argument("--legal-form", help="Legal form filter")
+    fnd.add_argument("--limit", type=int, default=50, help="Max results (default: 50)")
+    fnd.add_argument("--full", action="store_true", help="Show full dossier instead of summary")
+    fnd.add_argument("--json", action="store_true", help="Output as JSON")
+    fnd.add_argument("--csv", help="Export results to CSV file")
+
+    # Analyze command
+    anl = sub.add_parser("analyze", aliases=["analüüs"])
+    anl.add_argument("--by", required=True, choices=["county", "status", "legal-form", "emtak", "year"])
+    anl.add_argument("--emtak"); anl.add_argument("--industry"); anl.add_argument("--location"); anl.add_argument("--status"); anl.add_argument("--legal-form")
+    anl.add_argument("--founded-after"); anl.add_argument("--founded-before")
+    anl.add_argument("--top", type=int, default=20); anl.add_argument("--json", action="store_true")
+
+    # Report command (pre-built business reports)
+    rpt = sub.add_parser("report", aliases=["aruanne"], help="Pre-built business intelligence reports")
+    rpt.add_argument("type", choices=["market-overview", "new-companies", "top-industries", "industry-growth", "regional", "bankruptcies"])
+    rpt.add_argument("--period", help="Year for time-based reports (e.g., 2024)")
+    rpt.add_argument("--industry", help="Industry name for industry reports")
+    rpt.add_argument("-l", "--location", help="Location filter")
+    rpt.add_argument("--county", help="County for regional report")
+
+    # Export command (improved with filters)
+    exp = sub.add_parser("export", aliases=["ekspordi"], help="Export companies to CSV or JSON")
+    exp.add_argument("output", help="Output file (.csv or .json)")
+    exp.add_argument("--industry", help="Industry name filter")
+    exp.add_argument("-l", "--location", help="Location filter")
+    exp.add_argument("-s", "--status", help="Status filter")
+    exp.add_argument("--legal-form", help="Legal form filter")
+    exp.add_argument("--founded-after"); exp.add_argument("--founded-before")
+    exp.add_argument("--min-employees", type=int); exp.add_argument("--max-employees", type=int)
+    exp.add_argument("--limit", type=int, help="Max companies to export")
+
+    args = parser.parse_args(); setup_logging(args.verbose)
+
+    # Language detection
+    et_cmds = ["otsi", "rikasta", "ühenda", "sünk", "ekspordi", "analüüs", "statistika", "leia", "aruanne"]
+    en_cmds = ["search", "enrich", "merge", "sync", "export", "analyze", "stats", "find", "report"]
     cmd_typed = sys.argv[1] if len(sys.argv) > 1 else ""
     if args.en: lang = "en"
     elif args.ee: lang = "et"
     else: lang = "et" if (cmd_typed in et_cmds or (cmd_typed not in en_cmds and cmd_typed != "")) else "en"
-    if args.cmd in ["sync", "sünk"]: reg.sync(force=args.force)
-    elif args.cmd in ["merge", "ühenda"]: reg.merge(force=args.force)
+
+    # --list-industries (no DB needed)
+    if args.list_industries:
+        display_industry_list(lang=lang); return
+
+    reg = EstonianRegistry(use_db=not args.no_db)
+
+    if args.cmd in ["stats", "statistika"]:
+        display_stats(reg.db.get_stats(), lang=lang)
+
+    elif args.cmd in ["sync", "sünk"]: reg.sync(force=getattr(args, 'force', False))
+    elif args.cmd in ["merge", "ühenda"]: reg.merge(force=getattr(args, 'force', False))
     elif args.cmd in ["enrich", "rikasta"]: reg.enrich(args.codes)
-    elif args.cmd in ["export", "ekspordi"]: reg.export(Path(args.output), translate=(args.translate or lang=="en"))
+
     elif args.cmd in ["search", "otsi"]:
-        results = reg.db.search(term=args.term, person=args.person, location=args.location, status=args.status, limit=args.limit)
+        emtak = args.emtak
+        if args.industry:
+            emtak = resolve_industry(args.industry)
+            if not emtak: return
+        results = reg.db.search(term=args.term, person=args.person, location=args.location, status=args.status,
+                                limit=args.limit, emtak=emtak, founded_after=args.founded_after,
+                                founded_before=args.founded_before, legal_form=args.legal_form)
         sections, count = args.sections or ["all"], 0
         for item in results:
             count += 1
@@ -610,5 +1205,82 @@ def main():
             else: display_company(item, sections=sections, lang=lang)
         if count == 0: console.print(f"[warning]{UI_LABELS[lang]['no_results']}[/warning]")
         else: console.print(f"\n[success]{UI_LABELS[lang]['results_found']}: {count}[/success]")
+
+    elif args.cmd in ["find", "leia"]:
+        emtak = None
+        if args.industry:
+            emtak = resolve_industry(args.industry)
+            if not emtak: return
+        # Use a higher limit for post-filtering by employees
+        fetch_limit = args.limit
+        if args.min_employees or args.max_employees:
+            fetch_limit = None  # Fetch all, filter in Python
+        results = reg.db.search(term=args.query, location=args.location, status=args.status,
+                                limit=fetch_limit, emtak=emtak, founded_after=args.founded_after,
+                                founded_before=args.founded_before, legal_form=args.legal_form)
+        if args.min_employees or args.max_employees:
+            results = filter_by_employees(results, args.min_employees, args.max_employees)
+        # Apply limit after employee filter
+        def limited(gen, n):
+            for i, item in enumerate(gen):
+                if n and i >= n: break
+                yield item
+        results = limited(results, args.limit)
+        if args.csv:
+            # Collect results and export
+            items = list(results)
+            export_csv(reg.db, args.csv, lang=lang, emtak=emtak, location=args.location,
+                       status=args.status, legal_form=args.legal_form,
+                       founded_after=args.founded_after, founded_before=args.founded_before,
+                       min_employees=args.min_employees, max_employees=args.max_employees, limit=args.limit)
+        elif args.json:
+            items = list(results)
+            console.print(Syntax(json.dumps([translate_item(i, to_en=(lang=="en")) for i in items], indent=2, ensure_ascii=False), "json", theme="monokai"))
+        elif args.full:
+            count = 0
+            for item in results:
+                count += 1; display_company(item, lang=lang)
+            if count == 0: console.print(f"[warning]{UI_LABELS[lang]['no_results']}[/warning]")
+        else:
+            display_company_summary(results, lang=lang)
+
+    elif args.cmd in ["analyze", "analüüs"]:
+        emtak = args.emtak
+        if args.industry:
+            emtak = resolve_industry(args.industry)
+            if not emtak: return
+        results = reg.db.analyze(by=args.by, emtak=emtak, location=args.location, status=args.status,
+                                 legal_form=args.legal_form, founded_after=args.founded_after,
+                                 founded_before=args.founded_before, top=args.top)
+        if args.json:
+            console.print(Syntax(json.dumps([{"group": g, "count": c} for g, c in results], indent=2, ensure_ascii=False), "json", theme="monokai"))
+        else:
+            display_analysis(results, by=args.by, lang=lang)
+
+    elif args.cmd in ["report", "aruanne"]:
+        cmd_report(reg.db, args.type, lang=lang, period=args.period,
+                   industry=args.industry, location=args.location, county=args.county)
+
+    elif args.cmd in ["export", "ekspordi"]:
+        output = Path(args.output)
+        emtak = None
+        if args.industry:
+            emtak = resolve_industry(args.industry)
+            if not emtak: return
+        if output.suffix.lower() == '.csv':
+            export_csv(reg.db, output, lang=lang, emtak=emtak, location=args.location,
+                       status=args.status, legal_form=args.legal_form,
+                       founded_after=args.founded_after, founded_before=args.founded_before,
+                       min_employees=args.min_employees, max_employees=args.max_employees, limit=args.limit)
+        else:
+            # JSON export (original behavior with filters)
+            results = reg.db.search(emtak=emtak, location=args.location, status=args.status,
+                                    legal_form=args.legal_form, founded_after=args.founded_after,
+                                    founded_before=args.founded_before, limit=args.limit)
+            if args.min_employees or args.max_employees:
+                results = filter_by_employees(results, args.min_employees, args.max_employees)
+            data = [translate_item(i, to_en=(lang=="en")) for i in results]
+            with open(output, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False, indent=2)
+            console.print(f"[success]Exported {len(data)} companies to {output}[/success]")
 
 if __name__ == "__main__": main()

@@ -6,19 +6,21 @@
 
 # Eesti Äriregistri CLI
 
-Kiire, põhjalik ja visuaalselt selge tööriist Eesti äriregistri avaandmete allalaadimiseks, ühendamiseks, otsimiseks ja rikastamiseks.
+Kiire, põhjalik ja visuaalselt selge tööriist Eesti äriregistri avaandmete allalaadimiseks, ühendamiseks, otsimiseks, analüüsimiseks ja rikastamiseks. Mõeldud nii arendajatele kui ka ärikasutajatele.
 
 ## Funktsioonid
 
 - **Paralleelsed ja jätkatavad allalaadimised**: Laeb alla kõik registrifailid korraga, kasutades HTTP Range päiseid katkenud allalaadimiste jätkamiseks.
-- **SQLite arhitektuur (vaikimisi)**: Kasutab kohalikku SQLite andmebaasi kiireteks otsinguteks, keerukateks filtriteks ja andmete rikastamiseks.
-- **Kakskeelne tugi**: Toetus nii eesti- kui ka ingliskeelsetele käskudele ja väljundile. Vaikimisi keel on eesti keel.
-- **Inkrementaalne ja jätkatav andmeühendus**: Töötleb faile kirje haaval koos oleku salvestamisega. Katkestuse korral jätkab sealt, kus pooleli jäi.
+- **SQLite arhitektuur**: Kasutab kohalikku SQLite andmebaasi kiireteks otsinguteks, keerukateks filtriteks ja andmete rikastamiseks.
+- **Kakskeelne tugi**: Toetus nii eesti- kui ka ingliskeelsetele käskudele ja väljundile.
+- **Ärikasutajate otsing (`leia`)**: Otsi ettevõtteid tegevusala, asukoha, töötajate arvu ja asutamiskuupäeva järgi — ilma EMTAK koode teadmata.
+- **Äriaruanded (`aruanne`)**: Valmis tururaportid ühe käsuga: turuülevaade, uued ettevõtted, tegevusalade edetabel, piirkondlik analüüs, pankrotid.
+- **Andmeanalüüs (`analüüs`)**: Grupeeri ettevõtteid maakonna, staatuse, õigusliku vormi, EMTAK koodi või asutamisaasta järgi.
+- **CSV eksport**: Ekspordi filtreeritud tulemused Exceli-sõbralikku CSV-faili koos kontaktandmete, töötajate arvu ja tegevusalaga.
+- **Tegevusalade nimekaart**: 70+ tegevusala ingliskeelne nimetus → EMTAK koodid. Kirjavigade soovitused kaasa arvatud.
 - **Põhjalikud toimikud**: Kuvab kõik registrist kättesaadavad andmed, sh nime/aadressi ajalugu, kapitali muudatused ja tehnilised märkused.
-- **Ilus terminali kasutajaliides**: Kasutab `rich` teeki vormindatud tabelite, ajaloo puude ja süntaksi esiletõstmisega JSON-i jaoks.
-- **Isikukoodide avalikustamine (rikastamine)**: Parsib automaatselt ametlikke registrikaardi PDF-e, et avalikustada isikukoodid, mis on avaandmete failides peidetud (hashitud).
-- **Täpsem otsing**: Otsi nime, asukoha (linn/maakond), staatuse või isiku (nimi/isikukood) järgi.
-- **Sektsioonide filtreerimine**: Vaata toimiku konkreetseid osi (nt ainult omandisuhted või personal), kasutades spetsiaalseid lippe.
+- **Isikukoodide avalikustamine (rikastamine)**: Parsib ametlikke registrikaardi PDF-e, et avalikustada isikukoodid.
+- **Voogesitlusel põhinev JSON-i parser**: Töötleb 4+ GB JSON-faile mälutõhusalt (`ijson`).
 
 ## Kasutamine
 
@@ -27,18 +29,44 @@ Kiire, põhjalik ja visuaalselt selge tööriist Eesti äriregistri avaandmete a
 uv run registry.py sünk
 ```
 
-### 2. Otsing
+### 2. Ettevõtete leidmine
 ```bash
-uv run registry.py otsi "Sunyata"
+# Leia tarkvaraettevõtted Tallinnas, vähemalt 10 töötajat
+uv run registry.py leia --industry software --location Tallinn --min-employees 10
+
+# Leia ehitusettevõtted, asutatud pärast 2023
+uv run registry.py leia --industry construction --founded-after 2023-01-01
+
+# Leia konkreetne ettevõte nimega
+uv run registry.py leia "Bolt"
 ```
 
-#### Sektsioonide filtreerimine
+### 3. Äriandmete raportid
 ```bash
-# Vaata ainult omandisuhteid ja tegelikke kasusaajaid
+uv run registry.py --en aruanne market-overview
+uv run registry.py --en aruanne new-companies --period 2024
+uv run registry.py --en aruanne top-industries --location Tartu
+uv run registry.py --en aruanne regional --county "Harju maakond"
+```
+
+### 4. Analüüs
+```bash
+uv run registry.py analüüs --by county --industry software
+uv run registry.py analüüs --by year --founded-after 2015-01-01
+```
+
+### 5. Eksport
+```bash
+uv run registry.py ekspordi ettevotted.csv --industry software --location Tallinn
+uv run registry.py ekspordi koik.json --limit 1000
+```
+
+### 6. Otsing (detailne toimik)
+```bash
 uv run registry.py otsi "Sunyata" --ownership --beneficiaries
 ```
 
-### 3. Rikastamine
+### 7. Rikastamine
 ```bash
 uv run registry.py rikasta 16631240
 ```
@@ -47,25 +75,28 @@ uv run registry.py rikasta 16631240
 
 # Estonian Business Registry CLI
 
-A high-performance, exhaustive, and beautiful tool for downloading, merging, searching, and enriching the Estonian Business Registry open data.
+A business intelligence tool for the Estonian Business Registry. Download, search, analyze, and export data on 366,000+ Estonian companies. Built for both developers and business users.
 
 ## Features
 
 - **Parallel & Resumable Downloads**: Fetches all registry files simultaneously using HTTP Range headers to resume interrupted downloads.
-- **SQLite Architecture (Default)**: Uses a local SQLite database for instant searches, complex filtering, and reliable data enrichment.
-- **Dual-Language Support**: Support for both Estonian and English commands and output. Default is Estonian.
-- **Incremental & Resumable Merge**: Processes files record-by-record with checkpointing. If interrupted, it picks up exactly where it left off.
+- **SQLite Architecture**: Uses a local SQLite database for instant searches, complex filtering, and data enrichment.
+- **Dual-Language Support**: All commands and output available in both Estonian and English.
+- **Business-Friendly Search (`find`)**: Search companies by industry name, location, employee count, and founding date — no EMTAK codes required.
+- **Pre-Built Reports (`report`)**: One-command business intelligence reports: market overview, new companies, top industries, regional analysis, bankruptcies.
+- **Data Analysis (`analyze`)**: Group companies by county, status, legal form, EMTAK code, or founding year with filters.
+- **CSV Export**: Export filtered results to Excel-ready CSV with contacts, employee counts, and industry data.
+- **Industry Name Mapping**: 70+ plain English industry names mapped to EMTAK codes. Includes typo suggestions.
 - **Exhaustive Dossiers**: Displays every piece of data from the registry, including name/address history, capital changes, and technical annotations.
 - **Beautiful Terminal UI**: Powered by `rich`, featuring formatted tables, trees for history, and syntax-highlighted JSON.
-- **ID Unmasking (Enrichment)**: Automatically parses official Registry Card PDFs to unmask personal ID codes that are hashed in the bulk open data.
-- **Advanced Search**: Filter by term, location (city/county), status, or persons (Name/ID).
-- **Section Filtering**: View specific parts of a dossier (e.g., just ownership or personnel) using dedicated CLI flags.
+- **ID Unmasking (Enrichment)**: Parses official Registry Card PDFs to unmask personal ID codes that are hashed in the bulk open data.
+- **Streaming JSON Parser**: Handles 4+ GB JSON files memory-efficiently using `ijson`.
 
 ## Prerequisites
 
 - **Python 3.12+**
 - **uv**: Recommended for dependency management.
-- **jq** (Optional): Dramatically reduces RAM usage during the merge process.
+- **jq** (Optional): Speeds up JSON processing during the merge step.
 
 ## Installation
 
@@ -75,77 +106,150 @@ cd estonia-registry
 uv sync
 ```
 
+## Quick Start
+
+```bash
+# 1. Download and merge registry data (~10 min first time)
+uv run registry.py sync
+
+# 2. Find software companies in Tallinn with 10+ employees
+uv run registry.py --en find --industry software --location Tallinn --min-employees 10
+
+# 3. Get a market overview report
+uv run registry.py --en report market-overview
+
+# 4. Export construction companies to CSV
+uv run registry.py --en export construction.csv --industry construction
+```
+
 ## Usage
 
-The tool supports commands in both Estonian and English.
+The tool supports commands in both Estonian and English. Use `--en` to force English output, `--ee` for Estonian.
 
-### 1. Synchronize Data
-Downloads updates and merges them incrementally into the local database:
+### Synchronize Data
+Downloads and merges all registry files into the local database:
 ```bash
-uv run registry.py sync    # English
-uv run registry.py sünk   # Estonian
+uv run registry.py sync
+uv run registry.py merge --force   # Re-process all files
 ```
 
-### 2. Search
-Display a complete dossier for a company:
+### Find Companies (Business Search)
+The `find` command is designed for non-technical users. It returns a compact summary table:
 ```bash
-uv run registry.py search "Sunyata"   # Defaults to English output
-uv run registry.py otsi "Sunyata"    # Defaults to Estonian output
+# By industry (plain English names)
+uv run registry.py --en find --industry software --location Tallinn
+uv run registry.py --en find --industry "real estate" --founded-after 2023-01-01
+uv run registry.py --en find --industry restaurant --min-employees 5
+
+# By name or registry code
+uv run registry.py --en find "Bolt"
+uv run registry.py --en find 14532901
+
+# Show full dossier instead of summary table
+uv run registry.py --en find --industry healthcare --location Tartu --full
+
+# Export results directly to CSV
+uv run registry.py --en find --industry construction --csv construction.csv
 ```
 
-#### Language Overrides
-You can force the language regardless of the command used:
+Available `--industry` names include: `software`, `construction`, `restaurant`, `real estate`, `finance`, `healthcare`, `manufacturing`, `retail`, `transport`, `agriculture`, `energy`, `media`, and 60+ more. Use `--list-industries` to see all:
+```bash
+uv run registry.py --list-industries --en
+```
+
+### Reports (Business Intelligence)
+Pre-built reports that combine multiple analyses into one output:
+```bash
+# Full market snapshot: totals, top counties, top industries, founding trends
+uv run registry.py --en report market-overview
+
+# New companies in a given year: top industries, locations, legal forms
+uv run registry.py --en report new-companies --period 2024
+
+# Top industries in a specific location
+uv run registry.py --en report top-industries --location Tartu
+
+# Growth of a specific industry over time
+uv run registry.py --en report industry-growth --industry software
+
+# Regional deep-dive for a county
+uv run registry.py --en report regional --county "Harju maakond"
+
+# Bankruptcies and liquidations
+uv run registry.py --en report bankruptcies --period 2024
+```
+
+### Analyze
+Group and count companies by dimension, with optional filters:
+```bash
+# Top counties for software companies
+uv run registry.py --en analyze --by county --industry software
+
+# Status breakdown for companies in Tartu
+uv run registry.py --en analyze --by status --location Tartu
+
+# EMTAK industry breakdown
+uv run registry.py --en analyze --by emtak --top 20
+
+# Founding trend by year
+uv run registry.py --en analyze --by year --founded-after 2010-01-01
+
+# Legal form distribution
+uv run registry.py --en analyze --by legal-form
+```
+
+### Search (Detailed Dossiers)
+The original detailed search that shows full company dossiers:
+```bash
+uv run registry.py search "Sunyata"
+
+# Filter by section
+uv run registry.py search "Sunyata" --ownership --beneficiaries --personnel
+
+# Search by person
+uv run registry.py search -p "Tony Benoy"
+
+# Filter by EMTAK code, date, legal form
+uv run registry.py search --emtak 62 --founded-after 2024-01-01 --legal-form "Aktsiaselts" --limit 3
+
+# Output as JSON
+uv run registry.py search 16631240 --json
+```
+
+### Export
+Export filtered company data to CSV or JSON:
+```bash
+# CSV with flattened columns (Excel-ready, UTF-8 BOM)
+uv run registry.py --en export software_tallinn.csv --industry software --location Tallinn
+
+# JSON export
+uv run registry.py --en export all.json --limit 1000
+
+# With employee filtering
+uv run registry.py --en export big_companies.csv --min-employees 100
+```
+
+CSV columns: `code, name, status, county, city, legal_form, founded, main_industry_code, main_industry_name, employees, email, phone, website`
+
+### Statistics
+Quick overview of the database:
+```bash
+uv run registry.py --en stats
+```
+
+### Enrichment (ID Unmasking)
+Unmask personal ID codes by downloading the official PDF:
+```bash
+uv run registry.py enrich 16631240
+```
+
+## Language Overrides
 ```bash
 uv run registry.py otsi "Sunyata" --en   # Estonian command, English output
 uv run registry.py search "Sunyata" --ee  # English command, Estonian output
 ```
 
-#### Filtering by Section
-Use section flags to isolate specific data points:
-```bash
-# See only ownership and beneficial owners
-uv run registry.py search "Sunyata" --ownership --beneficiaries
-
-# See only historical records (names, addresses, capital)
-uv run registry.py search "Sunyata" --history
-```
-
-#### Advanced Search Filters
-```bash
-# Search for a person across all companies
-uv run registry.py search -p "Tony Benoy"
-
-# Filter by location and status
-uv run registry.py search -l "Harju" -s "Registrisse kantud"
-
-# Output full raw JSON with syntax highlighting
-uv run registry.py search 16631240 --json
-```
-
-### 3. Enrichment (ID Unmasking)
-Unmask personal ID codes by downloading the official PDF:
-```bash
-# Unmask IDs for a specific company
-uv run registry.py enrich 16631240    # English
-uv run registry.py rikasta 16631240   # Estonian
-```
-
-### 4. Exporting
-Export the entire database to a JSON file:
-```bash
-uv run registry.py export dump.json
-uv run registry.py ekspordi dump.json
-```
-
-## Multi-Backend Architecture
-The tool is designed to be database-agnostic. It uses an abstract `RegistryBackend` interface, allowing for easy expansion to other databases (e.g., PostgreSQL, MongoDB). 
-
-To add a new backend:
-1. Subclass `RegistryBackend` in `registry.py`.
-2. Implement the abstract methods (search, insert, etc.).
-3. Pass your new backend instance to the `EstonianRegistry` constructor.
-
-## Available Sections
+## Available Dossier Sections
 - `--core`: Technical metadata and IDs.
 - `--general`: Registry-wide attributes and flags.
 - `--history`: Chronological logs of names, addresses, and capital.
@@ -155,6 +259,9 @@ To add a new backend:
 - `--operations`: EMTAK activities, reports, and contacts.
 - `--registry`: The complete chronological registry card log.
 - `--enrichment`: Data extracted from live PDF cards.
+
+## Architecture
+The tool uses an abstract `RegistryBackend` interface, allowing for expansion to other databases (e.g., PostgreSQL). To add a new backend, subclass `RegistryBackend` in `registry.py` and implement the abstract methods.
 
 ## License
 MIT
